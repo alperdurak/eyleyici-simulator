@@ -49,4 +49,7 @@ ders kitabı seviyesinde genel bir modeldir.
 - Slider'ların yanında anlık değer; üzerine gelince tek cümlelik açıklama.
 - Metrik kartları: değer büyük ve belirgin, birim küçük. Hedefe göre küçük renkli nokta:
   aşma < %10, oturma < 1 s, kalıcı hata < 0.5° ise yeşil, değilse kırmızı.
-- Footer: "Eğitim amaçlı genel model · Alper Durak · github.com/alperdurak"
+- Başlıktaki GitHub linki proje deposuna gider:
+  https://github.com/alperdurak/eyleyici-simulator
+- Footer: "Eğitim amaçlı genel model · Alper Durak · github.com/alperdurak · LinkedIn"
+  (LinkedIn: https://www.linkedin.com/in/alperdurak/)

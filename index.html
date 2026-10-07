@@ -34,10 +34,17 @@
       --good: #10B981;        /* iyi (yeşil) */
       --bad: #EF4444;         /* kötü (kırmızı) */
 
+      /* Seçili / etkin durumlar için vurgu renklerinin silik dolguları */
+      --accent-tint: rgba(56, 189, 248, 0.12);
+      --signal-tint: rgba(245, 158, 11, 0.12);
+
       --font-text: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
       --font-num: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
 
-      /* 8px ızgarasına göre boşluklar */
+      /* 8px ızgarasına göre boşluklar.
+         --s0 (4px) yarım adımdır; sadece etiket ile değeri arası gibi
+         metin içi mikro boşluklarda kullanılır, düzen boşluklarında değil. */
+      --s0: 4px;
       --s1: 8px;
       --s2: 16px;
       --s3: 24px;
@@ -133,25 +140,27 @@
     .topbar p {
       margin: 0;
       color: var(--text-muted);
-      font-size: 13px;
+      font-size: 12px;
     }
 
     .topbar-right {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: var(--s1);
       flex-shrink: 0;
     }
 
-    /* --- Durum göstergesi: Hazır (gri) / Çalışıyor (yeşil, yanıp söner) --- */
+    /* --- Durum göstergesi: Hazır (gri) / Çalışıyor (yeşil, yanıp söner) ---
+       GitHub linkiyle aynı yükseklikte (32px) */
     .status {
       display: inline-flex;
       align-items: center;
       gap: var(--s1);
+      height: 32px;
       font-size: 12px;
       font-weight: 500;
       color: var(--text-muted);
-      padding: 6px 12px;
+      padding: 0 var(--s2);
       border: 1px solid var(--border);
       border-radius: 999px;
     }
@@ -176,13 +185,16 @@
     }
 
     .github-link {
-      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      height: 32px;
+      font-size: 12px;
       font-weight: 500;
       text-decoration: none;
       color: var(--text);
-      padding: 6px 12px;
+      padding: 0 var(--s2);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: var(--s1);
     }
 
     .github-link:hover { border-color: var(--accent); color: var(--accent); }
@@ -234,13 +246,13 @@
     /* --- Slider satırı: etiket + anlık değer + slider --- */
     .slider-row { position: relative; }
 
-    .slider-row + .slider-row { margin-top: 20px; }
+    .slider-row + .slider-row { margin-top: var(--s2); }
 
     .slider-head {
       display: flex;
       justify-content: space-between;
       align-items: baseline;
-      margin-bottom: 6px;
+      margin-bottom: var(--s1);
     }
 
     .slider-head label {
@@ -249,7 +261,7 @@
     }
 
     .slider-value {
-      font-size: 13px;
+      font-size: 14px;
       font-weight: 500;
       color: var(--accent);
     }
@@ -259,7 +271,7 @@
       color: var(--text-muted);
       font-weight: 400;
       font-size: 12px;
-      margin-left: 3px;
+      margin-left: var(--s0);
     }
 
     input[type="range"] {
@@ -274,14 +286,14 @@
       position: absolute;
       left: 0;
       right: 0;
-      bottom: calc(100% + 6px);
+      bottom: calc(100% + var(--s1));
       z-index: 10;
-      padding: var(--s1) 12px;
+      padding: var(--s1) var(--s2);
       background: var(--border);
       color: var(--text);
       font-size: 12px;
-      line-height: 1.4;
-      border-radius: 8px;
+      line-height: 1.5;
+      border-radius: var(--s1);
       opacity: 0;
       visibility: hidden;
       transition: opacity 120ms ease;
@@ -301,13 +313,14 @@
       gap: var(--s1);
     }
 
-    /* --- Genel buton görünümü --- */
+    /* --- Genel buton görünümü (yükseklik 40px) --- */
     .btn {
       font: inherit;
       font-weight: 500;
-      font-size: 13px;
-      padding: var(--s1) 12px;
-      border-radius: 8px;
+      font-size: 14px;
+      line-height: 22px;
+      padding: var(--s1);
+      border-radius: var(--s1);
       border: 1px solid var(--border);
       background: transparent;
       color: var(--text);
@@ -320,7 +333,7 @@
     /* Seçili hazır ayar: camgöbeği kenarlık ve hafif dolgu */
     .btn.is-active {
       border-color: var(--accent);
-      background: rgba(56, 189, 248, 0.12);
+      background: var(--accent-tint);
       color: var(--accent);
     }
 
@@ -341,7 +354,7 @@
     /* Dış yük uygulanırken buton amber dolgulu görünür */
     .btn-signal.is-active {
       border-color: var(--signal);
-      background: rgba(245, 158, 11, 0.14);
+      background: var(--signal-tint);
     }
 
     /* Kullanılamayan buton (ör. simülasyon dururken "Dış yük uygula") */
@@ -389,7 +402,7 @@
     .advanced-hint {
       color: var(--text-muted);
       font-size: 12px;
-      margin: 4px 0 0;
+      margin: var(--s0) 0 0;
     }
 
     .advanced-body { margin-top: var(--s3); }
@@ -435,7 +448,7 @@
     .legend-item {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: var(--s1);
     }
 
     /* Açıklamadaki küçük çizgi örnekleri */
@@ -502,9 +515,9 @@
     .gauge-arm-tip { fill: var(--accent); }
     .gauge-caption {
       font-family: var(--font-text);
-      font-size: 9px;
+      font-size: 11px;
       font-weight: 600;
-      letter-spacing: 0.1em;
+      letter-spacing: 0.08em;
       fill: var(--text-muted);
     }
     .gauge-value {
@@ -538,23 +551,23 @@
     }
 
     .readout {
-      padding: var(--s1) 12px;
+      padding: var(--s1) var(--s2);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: var(--s1);
     }
 
     .readout-label {
       display: flex;
       align-items: center;
-      gap: 6px;
-      font-size: 11px;
+      gap: var(--s1);
+      font-size: 12px;
       color: var(--text-muted);
     }
 
     .readout-value {
-      font-size: 15px;
+      font-size: 16px;
       font-weight: 500;
-      margin-top: 2px;
+      margin-top: var(--s0);
     }
 
     /* =========================================================
@@ -568,7 +581,7 @@
       gap: var(--s2);
     }
 
-    .metric { padding: var(--s2) 20px 20px; }
+    .metric { padding: var(--s3); }
 
     .metric-head {
       display: flex;
@@ -580,12 +593,13 @@
       font-weight: 500;
     }
 
-    /* Hedefe göre durum noktası: gri (veri yok), yeşil, kırmızı */
+    /* Hedefe göre durum noktası: gri (veri yok), yeşil, kırmızı.
+       Gri, başlıktaki "Hazır" noktasıyla aynı renktir. */
     .metric-dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
-      background: var(--border);
+      background: var(--target);
       flex-shrink: 0;
     }
 
@@ -593,7 +607,7 @@
     .metric-dot.is-bad { background: var(--bad); }
 
     .metric-value {
-      margin-top: 12px;
+      margin-top: var(--s2);
       font-size: 36px;
       font-weight: 600;
       line-height: 1;
@@ -607,18 +621,19 @@
       font-weight: 500;
       color: var(--text-muted);
       letter-spacing: 0;
-      margin-left: 6px;
+      margin-left: var(--s0);
     }
 
     .metric-target {
-      margin-top: 12px;
+      margin-top: var(--s1);
       font-size: 12px;
       color: var(--text-muted);
     }
 
     /* =========================================================
        "NASIL ÇALIŞIR?" BÖLÜMÜ
-       Aşama 4'te doldurulacak.
+       Başlık ve yan yana üç kısa paragraf: model, denetleyici,
+       ölçümler. Her paragrafın üstünde küçük bir ara başlık var.
        ========================================================= */
     .explain {
       max-width: 1280px;
@@ -630,13 +645,25 @@
 
     .explain h2 {
       font-size: 18px;
+      margin-bottom: var(--s3);
+    }
+
+    .explain-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: var(--s4);
+    }
+
+    .explain h3 {
+      font-size: 14px;
+      color: var(--text);
       margin-bottom: var(--s1);
     }
 
     .explain p {
       margin: 0;
       color: var(--text-muted);
-      max-width: 72ch;
+      line-height: 1.6;
     }
 
     /* =========================================================
@@ -651,6 +678,8 @@
     }
 
     .footer a { color: inherit; }
+
+    .footer a:hover { color: var(--accent); }
 
     /* =========================================================
        ORTA BOY EKRANLAR (< 1180px)
@@ -674,6 +703,11 @@
       }
 
       .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+      .explain-grid {
+        grid-template-columns: minmax(0, 1fr);
+        gap: var(--s3);
+      }
     }
 
     /* =========================================================
@@ -681,11 +715,14 @@
        Tek sütun: grafik üstte, kontrol paneli altta.
        ========================================================= */
     @media (max-width: 767px) {
-      .topbar-inner { padding: 12px var(--s2); }
-      .topbar h1 { font-size: 15px; }
+      /* Başlık şeridi iki satıra iner: üstte proje adı,
+         altta durum göstergesi ve GitHub linki */
+      .topbar-inner {
+        padding: var(--s2);
+        flex-wrap: wrap;
+        gap: var(--s1);
+      }
       .topbar p { display: none; }
-      /* GitHub linki mobilde footer'da zaten var */
-      .github-link { display: none; }
 
       .main {
         grid-template-columns: 1fr;
@@ -706,7 +743,7 @@
       .gauge-svg { width: 150px; }
 
       .metrics { gap: var(--s1); }
-      .metric { padding: 12px var(--s2) var(--s2); }
+      .metric { padding: var(--s2); }
       .metric-value { font-size: 28px; }
 
       .explain { padding: 0 var(--s2) var(--s2); }
@@ -735,7 +772,7 @@
           <span class="status-led"></span>
           <span id="status-text">Hazır</span>
         </div>
-        <a class="github-link" href="https://github.com/alperdurak" target="_blank" rel="noopener">GitHub</a>
+        <a class="github-link" href="https://github.com/alperdurak/eyleyici-simulator" target="_blank" rel="noopener">GitHub</a>
       </div>
     </div>
   </header>
@@ -942,12 +979,26 @@
   </main>
 
   <!-- =========================================================
-       "NASIL ÇALIŞIR?" BÖLÜMÜ (Aşama 4'te doldurulacak)
+       "NASIL ÇALIŞIR?" BÖLÜMÜ
+       Üç kısa paragraf: model, denetleyici, ölçümler.
        ========================================================= -->
-  <section class="explain" aria-label="Nasıl çalışır">
+  <section class="explain" aria-labelledby="explain-title">
     <div class="card">
-      <h2>Nasıl çalışır?</h2>
-      <p>Bu bölümde motor modeli, PID denetleyicisi ve metriklerin nasıl hesaplandığı anlatılacak.</p>
+      <h2 id="explain-title">Nasıl çalışır?</h2>
+      <div class="explain-grid">
+        <div>
+          <h3>Model</h3>
+          <p>Eyleyici, bir dişli kutusu üzerinden yük döndüren bir DC motordur. Motora verilen gerilim akım, akım da tork üretir; dişli kutusu bu torku büyütüp hızı düşürür. Simülasyon, motorun elektriksel ve mekanik denklemlerini her milisaniyede bir çözer. Gerçek bir ürünü değil, ders kitabı seviyesinde genel bir modeli temsil eder.</p>
+        </div>
+        <div>
+          <h3>Denetleyici</h3>
+          <p>PID denetleyici, hedef açı ile gerçek açı arasındaki farka bakıp motora ne kadar gerilim verileceğine karar verir. Kp farka orantılı iter, Ki zamanla biriken farkı kapatır, Kd ise hareketi frenleyerek hedefi aşmayı azaltır. Gerilim ±24 V ile sınırlıdır; büyük hedef değişimlerinde motor bir süre tam güçte çalışır.</p>
+        </div>
+        <div>
+          <h3>Ölçümler</h3>
+          <p>Hedefi her değiştirdiğinde yanıt ölçülür: hedefin ne kadar aşıldığı, yükselmenin ve yerleşmenin ne kadar sürdüğü ve sonunda kalan küçük hata. Yeşil nokta hedefin tutturulduğunu gösterir. "Dış yük uygula" yarım saniyelik ani bir zorlama ekler; denetleyicinin bu bozucuyu ne kadar çabuk toparladığını grafikte izleyebilirsin.</p>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -956,25 +1007,31 @@
        ========================================================= -->
   <footer class="footer">
     Eğitim amaçlı genel model · Alper Durak ·
-    <a href="https://github.com/alperdurak" target="_blank" rel="noopener">github.com/alperdurak</a>
+    <a href="https://github.com/alperdurak" target="_blank" rel="noopener">github.com/alperdurak</a> ·
+    <a href="https://www.linkedin.com/in/alperdurak/" target="_blank" rel="noopener">LinkedIn</a>
   </footer>
 
   <script>
     /* =========================================================
        RENKLER VE YAZI TİPLERİ (JavaScript tarafı)
-       CSS'teki değişkenlerle aynı değerler; Chart.js ve SVG
-       çizimi için burada da lazım.
+       Chart.js tuvale kendisi çizdiği için CSS'i göremez.
+       Renkler ve yazı tipleri burada CSS değişkenlerinden okunur;
+       böylece tek kaynak yine en üstteki :root bloğudur.
        ========================================================= */
+    const rootStyle = getComputedStyle(document.documentElement);
+    const cssVar = (name) => rootStyle.getPropertyValue(name).trim();
+
     const COLORS = {
-      target: '#64748B',
-      angle: '#38BDF8',
-      signal: '#F59E0B',
-      grid: 'rgba(148, 163, 184, 0.08)',
-      tick: '#94A3B8',
+      target: cssVar('--target'),
+      angle: cssVar('--accent'),
+      signal: cssVar('--signal'),
+      signalTint: cssVar('--signal-tint'),
+      tick: cssVar('--text-muted'),
+      grid: 'rgba(148, 163, 184, 0.08)',   // ikincil metin renginin çok silik hâli
     };
 
-    const FONT_TEXT = 'Inter, system-ui, sans-serif';
-    const FONT_NUM = '"JetBrains Mono", ui-monospace, Consolas, monospace';
+    const FONT_TEXT = cssVar('--font-text');
+    const FONT_NUM = cssVar('--font-num');
 
     /* =========================================================
        SLIDER DEĞERLERİNİ EKRANDA GÖSTERME
@@ -1114,9 +1171,9 @@
     drawDisturbArrow();
 
     /* =========================================================
-       GRAFİK KURULUMU (boş)
-       Üç veri serisi şimdiden tanımlı; Aşama 2'de simülasyon
-       bu serilere veri ekleyecek.
+       GRAFİK KURULUMU
+       Üç veri serisi; simülasyon döngüsü bu serilere veri ekler
+       (bkz. "GRAFİĞE VERİ EKLEME").
        - Sol eksen (y): açı, derece
        - Sağ eksen (yVolt): kontrol sinyali, Volt
        ========================================================= */
@@ -1143,7 +1200,7 @@
           const x0 = scales.x.getPixelForValue(mark.start);
           const x1 = scales.x.getPixelForValue(mark.end);
 
-          ctx.fillStyle = 'rgba(245, 158, 11, 0.12)';
+          ctx.fillStyle = COLORS.signalTint;
           ctx.fillRect(x0, chartArea.top, x1 - x0, chartArea.bottom - chartArea.top);
 
           // Yükün başladığı anı gösteren ince çizgi
