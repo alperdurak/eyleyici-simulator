@@ -737,27 +737,27 @@
         <div class="slider-row">
           <div class="slider-head">
             <label for="kp">Kp (oransal)</label>
-            <span class="slider-value num" id="kp-value">8.0</span>
+            <span class="slider-value num"><span id="kp-value">40</span><span class="unit">V/rad</span></span>
           </div>
-          <input type="range" id="kp" min="0" max="20" step="0.1" value="8" data-decimals="1">
+          <input type="range" id="kp" min="0" max="100" step="1" value="40" data-decimals="0">
           <div class="tooltip" role="tooltip">Hataya orantılı tepki verir; büyüdükçe sistem hızlanır ama salınım artar.</div>
         </div>
 
         <div class="slider-row">
           <div class="slider-head">
             <label for="ki">Ki (integral)</label>
-            <span class="slider-value num" id="ki-value">2.0</span>
+            <span class="slider-value num"><span id="ki-value">2.0</span><span class="unit">V/(rad·s)</span></span>
           </div>
-          <input type="range" id="ki" min="0" max="20" step="0.1" value="2" data-decimals="1">
+          <input type="range" id="ki" min="0" max="50" step="0.5" value="2" data-decimals="1">
           <div class="tooltip" role="tooltip">Biriken hatayı toplayarak kalıcı hatayı sıfıra çeker.</div>
         </div>
 
         <div class="slider-row">
           <div class="slider-head">
             <label for="kd">Kd (türev)</label>
-            <span class="slider-value num" id="kd-value">0.50</span>
+            <span class="slider-value num"><span id="kd-value">3.0</span><span class="unit">V·s/rad</span></span>
           </div>
-          <input type="range" id="kd" min="0" max="2" step="0.01" value="0.5" data-decimals="2">
+          <input type="range" id="kd" min="0" max="6" step="0.1" value="3" data-decimals="1">
           <div class="tooltip" role="tooltip">Hatanın değişim hızına tepki vererek aşmayı ve salınımı frenler.</div>
         </div>
       </section>
@@ -782,18 +782,18 @@
             <div class="slider-row">
               <div class="slider-head">
                 <label for="inertia">Yük ataleti J</label>
-                <span class="slider-value num"><span id="inertia-value">0.020</span><span class="unit">kg·m²</span></span>
+                <span class="slider-value num"><span id="inertia-value">0.20</span><span class="unit">kg·m²</span></span>
               </div>
-              <input type="range" id="inertia" min="0.001" max="0.1" step="0.001" value="0.02" data-decimals="3">
+              <input type="range" id="inertia" min="0.01" max="0.5" step="0.01" value="0.2" data-decimals="2">
               <div class="tooltip" role="tooltip">Yükün dönmeye karşı direnci; büyüdükçe sistem yavaşlar.</div>
             </div>
 
             <div class="slider-row">
               <div class="slider-head">
                 <label for="friction">Viskoz sürtünme b</label>
-                <span class="slider-value num"><span id="friction-value">0.010</span><span class="unit">N·m·s/rad</span></span>
+                <span class="slider-value num"><span id="friction-value">0.05</span><span class="unit">N·m·s/rad</span></span>
               </div>
-              <input type="range" id="friction" min="0" max="0.1" step="0.001" value="0.01" data-decimals="3">
+              <input type="range" id="friction" min="0" max="0.5" step="0.01" value="0.05" data-decimals="2">
               <div class="tooltip" role="tooltip">Hızla orantılı sürtünme; hareketi sönümler ve enerji kaybettirir.</div>
             </div>
 
@@ -962,25 +962,20 @@
 
     /* =========================================================
        DURUM GÖSTERGESİ
-       setRunning(true)  -> "Çalışıyor" (yeşil, yanıp söner)
-       setRunning(false) -> "Hazır" (gri)
-       Aşama 2'de simülasyon döngüsü bu fonksiyonu çağıracak.
+       Sadece görünümü değiştirir; simülasyonu başlatıp durduran
+       kod aşağıdaki "SİMÜLASYON DÖNGÜSÜ" bölümündedir.
+       showRunning(true)  -> "Çalışıyor" (yeşil, yanıp söner)
+       showRunning(false) -> "Hazır" (gri)
        ========================================================= */
     const statusEl = document.getElementById('status');
     const statusText = document.getElementById('status-text');
     const startButton = document.getElementById('btn-start');
-    let isRunning = false;
 
-    function setRunning(running) {
-      isRunning = running;
+    function showRunning(running) {
       statusEl.dataset.state = running ? 'running' : 'ready';
       statusText.textContent = running ? 'Çalışıyor' : 'Hazır';
       startButton.textContent = running ? 'Duraklat' : 'Başlat';
     }
-
-    // Şimdilik butonlar sadece durum göstergesini değiştirir
-    startButton.addEventListener('click', () => setRunning(!isRunning));
-    document.getElementById('btn-reset').addEventListener('click', () => setRunning(false));
 
     /* =========================================================
        AÇI GÖSTERGESİ (SVG KADRAN)
@@ -1042,7 +1037,7 @@
     }
 
     // Göstergeyi günceller: kol, hedef işareti, yay ve yazılar.
-    // Aşama 2'de simülasyon her karede bu fonksiyonu çağıracak.
+    // Simülasyon her ekran karesinde bu fonksiyonu çağırır.
     function updateGauge(actualDeg, targetDeg) {
       document.getElementById('gauge-arm').setAttribute('transform', `rotate(${actualDeg})`);
       document.getElementById('gauge-target').setAttribute('transform', `rotate(${targetDeg})`);
@@ -1053,11 +1048,6 @@
     }
 
     drawGaugeTicks();
-
-    // Şimdilik gerçek açı 0°'da sabit; hedef işareti slider'ı izler
-    const targetSlider = document.getElementById('target');
-    updateGauge(0, Number(targetSlider.value));
-    targetSlider.addEventListener('input', () => updateGauge(0, Number(targetSlider.value)));
 
     /* =========================================================
        GRAFİK KURULUMU (boş)
@@ -1124,11 +1114,19 @@
             grid: { color: COLORS.grid },
             border: { display: false },
             ticks: { font: tickFont },
+            // Grafik kayarken eksen sınırları küsuratlı olur (ör. 6.2 → 11.2).
+            // Etiketleri sadece tam saniyelere koy ki düzenli görünsün.
+            afterBuildTicks: (axis) => {
+              const ticks = [];
+              for (let s = Math.ceil(axis.min); s <= axis.max; s++) ticks.push({ value: s });
+              axis.ticks = ticks;
+            },
           },
           y: {
             position: 'left',
-            min: -200,
-            max: 200,
+            // Normalde ±200°; kötü ayarlarda açı bunu aşarsa eksen genişler
+            suggestedMin: -200,
+            suggestedMax: 200,
             title: { display: true, text: 'Açı (°)' },
             grid: { color: COLORS.grid },
             border: { display: false },
@@ -1162,6 +1160,257 @@
         button.classList.add('is-active');
       });
     });
+
+    /* =========================================================
+       FİZİK MODELİ: SABİTLER
+       Ders kitabı seviyesinde genel bir 24 V DC motor.
+       Gerçek bir ürünün değerleri değildir.
+       Motor parametreleri sabit; yük tarafı (J, b, N) slider'dan gelir.
+       ========================================================= */
+    const MOTOR = {
+      R: 4.0,      // sargı direnci (Ω)
+      L: 0.004,    // sargı endüktansı (H)
+      Kt: 0.05,    // tork sabiti (N·m/A)
+      Ke: 0.05,    // zıt EMK sabiti (V·s/rad); SI birimlerinde Kt ile eşit
+      Jm: 1e-5,    // motor rotorunun ataleti (kg·m²)
+    };
+
+    const DT = 0.001;               // integrasyon adımı: 1 ms
+    const V_MAX = 24;               // kontrol gerilimi sınırı (±24 V)
+    const DERIV_FILTER_TC = 0.01;   // türev filtresinin zaman sabiti (s)
+    const MAX_FRAME_TIME = 0.05;    // tek karede en fazla 50 ms simüle et
+    const CHART_WINDOW = 5;         // grafikte görünen süre (s)
+    const CHART_SAMPLE_EVERY = 10;  // grafiğe her 10 adımda (10 ms) bir nokta ekle
+
+    const RAD_TO_DEG = 180 / Math.PI;
+    const DEG_TO_RAD = Math.PI / 180;
+
+    /* =========================================================
+       SLIDER'LARDAN PARAMETRE OKUMA
+       Her slider değiştiğinde değerler bu nesneye kopyalanır;
+       simülasyon her adımda buradan okur. Böylece ayarlar
+       simülasyon çalışırken anında etkili olur.
+       ========================================================= */
+    const params = {};
+
+    function readParams() {
+      params.targetDeg = Number(document.getElementById('target').value);
+      params.kp = Number(document.getElementById('kp').value);
+      params.ki = Number(document.getElementById('ki').value);
+      params.kd = Number(document.getElementById('kd').value);
+      params.J = Number(document.getElementById('inertia').value);
+      params.b = Number(document.getElementById('friction').value);
+      params.N = Number(document.getElementById('gear').value);
+    }
+
+    readParams();
+    sliders.forEach((slider) => slider.addEventListener('input', () => {
+      readParams();
+      // Duraklatılmışken de kadrandaki hedef işareti slider'ı izlesin
+      if (!isRunning) updateGauge(sim.theta * RAD_TO_DEG, params.targetDeg);
+    }));
+
+    /* =========================================================
+       FİZİK MODELİ: DİFERANSİYEL DENKLEMLER
+       Durum değişkenleri (hepsi çıkış mili tarafında):
+         theta   : açı (rad)
+         omega   : açısal hız (rad/s)
+         current : motor akımı (A)
+
+       Elektriksel taraf (motor sargısı):
+         L · di/dt = V − R·i − Ke·N·ω
+         (N·ω motor milinin hızıdır; zıt EMK onunla orantılı)
+
+       Mekanik taraf (dişli kutusundan sonra):
+         J_top · dω/dt = N·Kt·i − b·ω − τ_bozucu
+         J_top = J_yük + N²·J_motor
+         (Dişli torku N kat büyütür; motor ataleti çıkışa N² kat yansır)
+       ========================================================= */
+    function derivatives(state, voltage, disturbanceTorque) {
+      const N = params.N;
+      const totalInertia = params.J + N * N * MOTOR.Jm;
+      return {
+        theta: state.omega,
+        omega: (N * MOTOR.Kt * state.current - params.b * state.omega - disturbanceTorque) / totalInertia,
+        current: (voltage - MOTOR.R * state.current - MOTOR.Ke * N * state.omega) / MOTOR.L,
+      };
+    }
+
+    /* =========================================================
+       SAYISAL İNTEGRASYON: 4. DERECE RUNGE-KUTTA (RK4)
+       Motorun elektriksel tepkisi çok hızlıdır (L/R = 1 ms).
+       Basit Euler yöntemi dt = 1 ms ile bu hızda kararsızlaşabilir;
+       RK4 her adımda dört eğim hesaplayıp ortalamasını alarak
+       aynı adım boyuyla kararlı ve doğru sonuç verir.
+       Gerilim adım boyunca sabit tutulur (dijital kontrolcü gibi).
+       ========================================================= */
+    function rk4Step(state, voltage, disturbanceTorque) {
+      const shift = (s, k, h) => ({
+        theta: s.theta + h * k.theta,
+        omega: s.omega + h * k.omega,
+        current: s.current + h * k.current,
+      });
+      const k1 = derivatives(state, voltage, disturbanceTorque);
+      const k2 = derivatives(shift(state, k1, DT / 2), voltage, disturbanceTorque);
+      const k3 = derivatives(shift(state, k2, DT / 2), voltage, disturbanceTorque);
+      const k4 = derivatives(shift(state, k3, DT), voltage, disturbanceTorque);
+      const avg = (key) => (k1[key] + 2 * k2[key] + 2 * k3[key] + k4[key]) / 6;
+      return {
+        theta: state.theta + DT * avg('theta'),
+        omega: state.omega + DT * avg('omega'),
+        current: state.current + DT * avg('current'),
+      };
+    }
+
+    /* =========================================================
+       PID DENETLEYİCİ
+       Hata e = hedef − gerçek (radyan). Çıkış: motor gerilimi (V).
+         V = Kp·e + Ki·∫e dt + Kd·(türev)
+       - Türev, hata yerine ölçülen açıdan alınır (−dθ/dt). Böylece
+         hedef aniden değiştiğinde çıkışta ani sıçrama ("türev
+         tekmesi") olmaz.
+       - Türev gürültüye duyarlıdır; birinci dereceden alçak geçiren
+         filtreyle yumuşatılır.
+       - Çıkış ±24 V ile sınırlanır (doygunluk).
+       - Windup koruması: çıkış doygundayken ve hata onu daha da
+         doyuracak yöndeyse integral biriktirilmez.
+       ========================================================= */
+    const pid = { integral: 0, prevTheta: 0, filteredDerivative: 0 };
+
+    function pidUpdate(targetRad, theta) {
+      const error = targetRad - theta;
+
+      // Ölçümden türev ve alçak geçiren filtre
+      const rawDerivative = -(theta - pid.prevTheta) / DT;
+      pid.prevTheta = theta;
+      const alpha = DT / (DERIV_FILTER_TC + DT);
+      pid.filteredDerivative += alpha * (rawDerivative - pid.filteredDerivative);
+
+      // Sınırlanmamış çıkış ve doygunluk
+      const unsaturated = params.kp * error + params.ki * pid.integral + params.kd * pid.filteredDerivative;
+      const voltage = Math.max(-V_MAX, Math.min(V_MAX, unsaturated));
+
+      // Windup koruması (koşullu integrasyon)
+      const isSaturated = voltage !== unsaturated;
+      const pushesFurther = Math.sign(error) === Math.sign(unsaturated);
+      if (!(isSaturated && pushesFurther)) {
+        pid.integral += error * DT;
+      }
+
+      return voltage;
+    }
+
+    /* =========================================================
+       SİMÜLASYON DURUMU
+       sim: zaman, fiziksel durum ve son uygulanan gerilim.
+       ========================================================= */
+    const sim = { time: 0, theta: 0, omega: 0, current: 0, voltage: 0 };
+    let stepCount = 0;
+    let disturbanceTorque = 0;   // Aşama 3'te "Dış yük uygula" bunu değiştirecek
+
+    // Tek bir 1 ms'lik adım: önce PID, sonra fizik
+    function simStep() {
+      sim.voltage = pidUpdate(params.targetDeg * DEG_TO_RAD, sim.theta);
+      const next = rk4Step(sim, sim.voltage, disturbanceTorque);
+      sim.theta = next.theta;
+      sim.omega = next.omega;
+      sim.current = next.current;
+      sim.time += DT;
+      stepCount += 1;
+
+      if (stepCount % CHART_SAMPLE_EVERY === 0) addChartPoint();
+    }
+
+    /* =========================================================
+       GRAFİĞE VERİ EKLEME
+       Son CHART_WINDOW saniye görünür; daha eski noktalar silinir.
+       Grafik sağa doğru kayar.
+       ========================================================= */
+    const [targetSeries, angleSeries, voltageSeries] = chart.data.datasets.map((d) => d.data);
+
+    function addChartPoint() {
+      targetSeries.push({ x: sim.time, y: params.targetDeg });
+      angleSeries.push({ x: sim.time, y: sim.theta * RAD_TO_DEG });
+      voltageSeries.push({ x: sim.time, y: sim.voltage });
+
+      const oldest = sim.time - CHART_WINDOW;
+      while (angleSeries.length && angleSeries[0].x < oldest) {
+        targetSeries.shift();
+        angleSeries.shift();
+        voltageSeries.shift();
+      }
+    }
+
+    function refreshChart() {
+      chart.options.scales.x.min = Math.max(0, sim.time - CHART_WINDOW);
+      chart.options.scales.x.max = Math.max(CHART_WINDOW, sim.time);
+      chart.update('none');
+    }
+
+    /* =========================================================
+       SİMÜLASYON DÖNGÜSÜ
+       Tarayıcı ekranı saniyede ~60 kez yeniler (requestAnimationFrame).
+       Her karede geçen gerçek süre kadar 1 ms'lik adım atılır
+       (60 fps'de kare başına ~16-17 adım). Böylece simülasyon
+       gerçek zamanla aynı hızda ilerler.
+       Sekme arka plana geçince tarayıcı kareleri durdurur; dönüşte
+       büyük bir sıçrama olmasın diye bir karede en fazla 50 ms
+       simüle edilir.
+       ========================================================= */
+    let isRunning = false;
+    let lastFrameTime = null;
+    let timeDebt = 0;   // henüz simüle edilmemiş gerçek süre (s)
+
+    function frame(now) {
+      if (!isRunning) return;
+
+      if (lastFrameTime !== null) {
+        timeDebt += Math.min((now - lastFrameTime) / 1000, MAX_FRAME_TIME);
+      }
+      lastFrameTime = now;
+
+      while (timeDebt >= DT) {
+        simStep();
+        timeDebt -= DT;
+      }
+
+      refreshChart();
+      updateGauge(sim.theta * RAD_TO_DEG, params.targetDeg);
+      requestAnimationFrame(frame);
+    }
+
+    function start() {
+      if (isRunning) return;
+      isRunning = true;
+      lastFrameTime = null;
+      showRunning(true);
+      requestAnimationFrame(frame);
+    }
+
+    function pause() {
+      isRunning = false;
+      showRunning(false);
+    }
+
+    // Her şeyi başlangıca döndürür: eyleyici 0°'da ve durgun
+    function reset() {
+      pause();
+      Object.assign(sim, { time: 0, theta: 0, omega: 0, current: 0, voltage: 0 });
+      Object.assign(pid, { integral: 0, prevTheta: 0, filteredDerivative: 0 });
+      stepCount = 0;
+      timeDebt = 0;
+      targetSeries.length = 0;
+      angleSeries.length = 0;
+      voltageSeries.length = 0;
+      refreshChart();
+      updateGauge(0, params.targetDeg);
+    }
+
+    startButton.addEventListener('click', () => (isRunning ? pause() : start()));
+    document.getElementById('btn-reset').addEventListener('click', reset);
+
+    // Sayfa açılışında başlangıç görünümü
+    reset();
   </script>
 </body>
 </html>
