@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eyleyici Konum Kontrol Simülatörü</title>
+  <meta name="description" content="DC motor ve dişli kutusundan oluşan bir eyleyicinin PID ile konum kontrolünü tarayıcıda simüle eden eğitim aracı.">
+  <!-- Boş favicon: tarayıcının olmayan favicon.ico dosyasını istemesini engeller -->
+  <link rel="icon" href="data:,">
+
+  <!-- Yazı tipleri: metinler için Inter, sayılar için JetBrains Mono (Google Fonts) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Grafik kütüphanesi: Chart.js (sabit sürüm) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+
+  <style>
+    /* =========================================================
+       TASARIM DEĞİŞKENLERİ
+       Tüm renkler, yazı tipleri ve boşluklar burada tek yerde.
+       Bir rengi değiştirmek için sadece buradaki değeri değiştir.
+       ========================================================= */
+    :root {
+      --bg: #0B1220;          /* sayfa arka planı */
+      --card: #111A2E;        /* kart arka planı */
+      --border: #1F2A44;      /* ince kenarlıklar */
+      --text: #E5E7EB;        /* ana metin */
+      --text-muted: #94A3B8;  /* ikincil metin */
+      --accent: #38BDF8;      /* gerçek açı ve ana vurgu (camgöbeği) */
+      --signal: #F59E0B;      /* kontrol sinyali (amber) */
+      --target: #64748B;      /* hedef açı (gri) */
+      --good: #10B981;        /* iyi (yeşil) */
+      --bad: #EF4444;         /* kötü (kırmızı) */
+
+      --font-text: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --font-num: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+
+      /* 8px ızgarasına göre boşluklar */
+      --s1: 8px;
+      --s2: 16px;
+      --s3: 24px;
+      --s4: 32px;
+
+      --radius: 12px;
+      --panel-width: 320px;
+
+      /* Tarayıcının kendi kontrollerini (slider vb.) koyu temada çizmesi için */
+      color-scheme: dark;
+    }
+
+    /* =========================================================
+       TEMEL AYARLAR
+       Kutu modeli, yazı tipi ve arka plan ızgarası.
+       ========================================================= */
+    *, *::before, *::after { box-sizing: border-box; }
+
+    html, body { margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg);
+      /* Mühendislik kağıdı ızgarası: iki küçük SVG desenden oluşur.
+         - 24px aralıklı çok silik ince çizgiler
+         - her 5 karede (120px) bir biraz daha belirgin çizgi
+         Desenler data URI olarak gömülü; harici dosya yok. */
+      background-image:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cpath d='M0 0.5H120M0.5 0V120' fill='none' stroke='%2394A3B8' stroke-opacity='0.07'/%3E%3C/svg%3E"),
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpath d='M0 0.5H24M0.5 0V24' fill='none' stroke='%2394A3B8' stroke-opacity='0.035'/%3E%3C/svg%3E");
+      color: var(--text);
+      font-family: var(--font-text);
+      font-size: 14px;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+      font-variant-numeric: tabular-nums;
+    }
+
+    h1, h2, h3 { font-weight: 600; margin: 0; }
+
+    a { color: var(--accent); }
+
+    /* Sayı gösteren her öğe bu sınıfı alır: eşit genişlikli rakamlar,
+       değer değişirken metin zıplamaz */
+    .num {
+      font-family: var(--font-num);
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Klavye ile gezinirken görünen odak çerçevesi */
+    :focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 2px;
+    }
+
+    /* Ortak kart görünümü */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+    }
+
+    /* Kart içi küçük büyük-harf başlıklar */
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin: 0 0 var(--s2);
+    }
+
+    /* =========================================================
+       ÜST BAŞLIK ŞERİDİ
+       Proje adı, tek satır alt başlık, durum göstergesi, GitHub.
+       ========================================================= */
+    .topbar {
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .topbar-inner {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: var(--s2) var(--s3);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--s2);
+    }
+
+    .topbar h1 { font-size: 16px; letter-spacing: -0.01em; }
+
+    .topbar p {
+      margin: 0;
+      color: var(--text-muted);
+      font-size: 13px;
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+
+    /* --- Durum göstergesi: Hazır (gri) / Çalışıyor (yeşil, yanıp söner) --- */
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--s1);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+    }
+
+    .status-led {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--target);
+    }
+
+    .status[data-state="running"] { color: var(--good); }
+
+    .status[data-state="running"] .status-led {
+      background: var(--good);
+      animation: blink 1.6s ease-in-out infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    .github-link {
+      font-size: 13px;
+      font-weight: 500;
+      text-decoration: none;
+      color: var(--text);
+      padding: 6px 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .github-link:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* =========================================================
+       ANA DÜZEN
+       Masaüstü: solda 320px kontrol paneli, sağda sonuçlar.
+       İki sütun aynı yüksekliğe uzar (alt kenarlar hizalı).
+       ========================================================= */
+    .main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: var(--s3);
+      display: grid;
+      grid-template-columns: var(--panel-width) minmax(0, 1fr);
+      gap: var(--s3);
+      align-items: stretch;
+    }
+
+    /* Sağ sütun: üstte grafik + gösterge satırı, altta metrikler.
+       Grafik satırı kalan yüksekliği doldurur. */
+    .results {
+      display: flex;
+      flex-direction: column;
+      gap: var(--s3);
+      min-width: 0;
+    }
+
+    /* =========================================================
+       KONTROL PANELİ
+       Hedef açı, PID kazançları, hazır ayarlar, gelişmiş ayarlar
+       ve butonlar. Butonlar her zaman panelin en altında durur.
+       ========================================================= */
+    .panel {
+      padding: var(--s3);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel-section:not(:first-child) {
+      margin-top: var(--s3);
+      padding-top: var(--s3);
+      border-top: 1px solid var(--border);
+    }
+
+    /* Boş alanı doldurup butonları aşağı iten esnek boşluk */
+    .panel-spacer { flex: 1; }
+
+    /* --- Slider satırı: etiket + anlık değer + slider --- */
+    .slider-row { position: relative; }
+
+    .slider-row + .slider-row { margin-top: 20px; }
+
+    .slider-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 6px;
+    }
+
+    .slider-head label {
+      font-weight: 500;
+      cursor: help;
+    }
+
+    .slider-value {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--accent);
+    }
+
+    .slider-value .unit {
+      font-family: var(--font-text);
+      color: var(--text-muted);
+      font-weight: 400;
+      font-size: 12px;
+      margin-left: 3px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      margin: 0;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    /* --- Açıklama balonu: slider satırının üzerine gelince görünür --- */
+    .tooltip {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: calc(100% + 6px);
+      z-index: 10;
+      padding: var(--s1) 12px;
+      background: var(--border);
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.4;
+      border-radius: 8px;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 120ms ease;
+      pointer-events: none;
+    }
+
+    .slider-row:hover .tooltip,
+    .slider-row:focus-within .tooltip {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    /* --- Hazır ayar butonları (3'lü grup) --- */
+    .preset-group {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: var(--s1);
+    }
+
+    /* --- Genel buton görünümü --- */
+    .btn {
+      font: inherit;
+      font-weight: 500;
+      font-size: 13px;
+      padding: var(--s1) 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      transition: border-color 120ms ease, color 120ms ease;
+    }
+
+    .btn:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Seçili hazır ayar: camgöbeği kenarlık ve hafif dolgu */
+    .btn.is-active {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.12);
+      color: var(--accent);
+    }
+
+    /* Ana buton (Başlat): dolu camgöbeği, koyu yazı */
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: var(--bg);
+      font-weight: 600;
+    }
+
+    .btn-primary:hover { color: var(--bg); opacity: 0.88; }
+
+    .btn-signal { color: var(--signal); }
+
+    .btn-signal:hover { border-color: var(--signal); color: var(--signal); }
+
+    .action-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--s1);
+    }
+
+    .action-group .btn-wide { grid-column: 1 / -1; }
+
+    /* --- Gelişmiş ayarlar: varsayılan kapalı, tıklayınca açılır --- */
+    .advanced summary {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 500;
+      user-select: none;
+    }
+
+    .advanced summary::-webkit-details-marker { display: none; }
+
+    /* Sağdaki ok işareti; açılınca aşağı döner */
+    .advanced summary::after {
+      content: "";
+      width: 7px;
+      height: 7px;
+      border-right: 1.5px solid var(--text-muted);
+      border-bottom: 1.5px solid var(--text-muted);
+      transform: rotate(-45deg);
+      transition: transform 150ms ease;
+    }
+
+    .advanced[open] summary::after { transform: rotate(45deg); }
+
+    .advanced-hint {
+      color: var(--text-muted);
+      font-size: 12px;
+      margin: 4px 0 0;
+    }
+
+    .advanced-body { margin-top: var(--s3); }
+
+    /* =========================================================
+       GRAFİK + AÇI GÖSTERGESİ SATIRI
+       Solda grafik (esnek genişlik), sağda sabit genişlikte kadran.
+       ========================================================= */
+    .viz-row {
+      flex: 1;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 288px;
+      gap: var(--s3);
+    }
+
+    /* --- Grafik kartı --- */
+    .chart-card {
+      padding: var(--s3);
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .chart-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--s1) var(--s2);
+      margin-bottom: var(--s2);
+    }
+
+    .chart-header .section-title { margin: 0; }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--s2);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* Açıklamadaki küçük çizgi örnekleri */
+    .legend-swatch {
+      width: 18px;
+      height: 0;
+      border-top: 2px solid;
+    }
+
+    .swatch-target { border-top: 2px dashed var(--target); }
+    .swatch-angle { border-color: var(--accent); }
+    .swatch-signal { border-color: var(--signal); }
+
+    /* Grafik alanı kalan yüksekliği doldurur. Tuval (canvas) mutlak
+       konumlu olduğu için grafik kendi kutusunu büyütemez; böylece
+       Chart.js'in yeniden boyutlandırma döngüsüne girmesi önlenir. */
+    .chart-wrap {
+      position: relative;
+      flex: 1;
+      min-height: 320px;
+    }
+
+    .chart-wrap canvas {
+      position: absolute;
+      inset: 0;
+    }
+
+    /* --- Açı göstergesi kartı --- */
+    .gauge-card {
+      padding: var(--s3);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .gauge-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: var(--s2);
+    }
+
+    .gauge-svg {
+      display: block;
+      width: 100%;
+      max-width: 240px;
+      margin: 0 auto;
+      overflow: visible;
+    }
+
+    /* Kadranın parçaları (renkler tasarım değişkenlerinden gelir) */
+    .gauge-face { fill: var(--bg); stroke: var(--border); stroke-width: 1; }
+    .gauge-ring { fill: none; stroke: var(--border); stroke-width: 1.5; }
+    .gauge-tick { stroke: var(--text-muted); stroke-opacity: 0.35; stroke-width: 1; }
+    .gauge-tick.is-major { stroke-opacity: 0.8; stroke-width: 1.5; }
+    .gauge-label {
+      font-family: var(--font-num);
+      font-size: 11px;
+      fill: var(--text-muted);
+    }
+    .gauge-arc { fill: none; stroke: var(--accent); stroke-width: 3; stroke-linecap: round; }
+    .gauge-target { stroke: var(--target); stroke-width: 1.5; }
+    .gauge-arm { stroke: var(--accent); stroke-width: 3; stroke-linecap: round; }
+    .gauge-arm-tip { fill: var(--accent); }
+    .gauge-caption {
+      font-family: var(--font-text);
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      fill: var(--text-muted);
+    }
+    .gauge-value {
+      font-family: var(--font-num);
+      font-size: 26px;
+      font-weight: 600;
+      fill: var(--text);
+    }
+
+    /* Kadranın altındaki hedef / hata okumaları */
+    .gauge-readouts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--s1);
+    }
+
+    .readout {
+      padding: var(--s1) 12px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    .readout-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .readout-value {
+      font-size: 15px;
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    /* =========================================================
+       METRİK KARTLARI
+       Yan yana 4 kart: değer büyük ve belirgin, birim küçük,
+       sağ üstte hedefe göre durum noktası.
+       ========================================================= */
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--s2);
+    }
+
+    .metric { padding: var(--s2) 20px 20px; }
+
+    .metric-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: var(--s1);
+      color: var(--text-muted);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    /* Hedefe göre durum noktası: gri (veri yok), yeşil, kırmızı */
+    .metric-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+      flex-shrink: 0;
+    }
+
+    .metric-dot.is-good { background: var(--good); }
+    .metric-dot.is-bad { background: var(--bad); }
+
+    .metric-value {
+      margin-top: 12px;
+      font-size: 36px;
+      font-weight: 600;
+      line-height: 1;
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+    }
+
+    .metric-value .unit {
+      font-family: var(--font-text);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-muted);
+      letter-spacing: 0;
+      margin-left: 6px;
+    }
+
+    .metric-target {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* =========================================================
+       "NASIL ÇALIŞIR?" BÖLÜMÜ
+       Aşama 4'te doldurulacak.
+       ========================================================= */
+    .explain {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 0 var(--s3) var(--s3);
+    }
+
+    .explain .card { padding: var(--s4); }
+
+    .explain h2 {
+      font-size: 18px;
+      margin-bottom: var(--s1);
+    }
+
+    .explain p {
+      margin: 0;
+      color: var(--text-muted);
+      max-width: 72ch;
+    }
+
+    /* =========================================================
+       ALT BİLGİ (FOOTER)
+       ========================================================= */
+    .footer {
+      border-top: 1px solid var(--border);
+      padding: var(--s3);
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 12px;
+    }
+
+    .footer a { color: inherit; }
+
+    /* =========================================================
+       ORTA BOY EKRANLAR (< 1180px)
+       Gösterge grafiğin altına iner ve yatay yerleşir;
+       metrik kartları 2 sütuna iner.
+       ========================================================= */
+    @media (max-width: 1179px) {
+      .viz-row { grid-template-columns: minmax(0, 1fr); }
+
+      .gauge-body {
+        flex-direction: row;
+        align-items: center;
+        gap: var(--s3);
+      }
+
+      .gauge-svg { width: 200px; margin: 0; flex-shrink: 0; }
+
+      .gauge-readouts {
+        flex: 1;
+        grid-template-columns: 1fr;
+      }
+
+      .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    /* =========================================================
+       MOBİL DÜZEN (< 768px)
+       Tek sütun: grafik üstte, kontrol paneli altta.
+       ========================================================= */
+    @media (max-width: 767px) {
+      .topbar-inner { padding: 12px var(--s2); }
+      .topbar h1 { font-size: 15px; }
+      .topbar p { display: none; }
+      /* GitHub linki mobilde footer'da zaten var */
+      .github-link { display: none; }
+
+      .main {
+        grid-template-columns: 1fr;
+        padding: var(--s2);
+        gap: var(--s2);
+      }
+
+      /* Sıralamayı değiştir: önce sonuçlar (grafik), sonra panel */
+      .results { order: 1; gap: var(--s2); }
+      .panel { order: 2; padding: var(--s2); }
+      .panel-spacer { display: none; }
+
+      .viz-row { gap: var(--s2); }
+      .chart-card, .gauge-card { padding: var(--s2); }
+      .chart-wrap { flex: none; height: 280px; min-height: 0; }
+
+      .gauge-body { gap: var(--s2); }
+      .gauge-svg { width: 150px; }
+
+      .metrics { gap: var(--s1); }
+      .metric { padding: 12px var(--s2) var(--s2); }
+      .metric-value { font-size: 28px; }
+
+      .explain { padding: 0 var(--s2) var(--s2); }
+      .explain .card { padding: var(--s3) var(--s2); }
+    }
+
+    /* Hareket azaltma tercih eden kullanıcılar için yanıp sönmeyi kapat */
+    @media (prefers-reduced-motion: reduce) {
+      .status[data-state="running"] .status-led { animation: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- =========================================================
+       ÜST BAŞLIK ŞERİDİ
+       ========================================================= -->
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div>
+        <h1>Eyleyici Konum Kontrol Simülatörü</h1>
+        <p>DC motor ve dişli kutusundan oluşan bir eyleyicinin PID ile konum kontrolü</p>
+      </div>
+      <div class="topbar-right">
+        <div class="status" id="status" data-state="ready" role="status">
+          <span class="status-led"></span>
+          <span id="status-text">Hazır</span>
+        </div>
+        <a class="github-link" href="https://github.com/alperdurak" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="main">
+
+    <!-- =========================================================
+         KONTROL PANELİ (solda)
+         ========================================================= -->
+    <aside class="panel card" aria-label="Kontrol paneli">
+
+      <!-- Hedef açı -->
+      <section class="panel-section">
+        <h2 class="section-title">Hedef</h2>
+        <div class="slider-row">
+          <div class="slider-head">
+            <label for="target">Hedef açı</label>
+            <span class="slider-value num"><span id="target-value">90</span><span class="unit">°</span></span>
+          </div>
+          <input type="range" id="target" min="-180" max="180" step="1" value="90" data-decimals="0">
+          <div class="tooltip" role="tooltip">Eyleyici milinin ulaşması istenen açı.</div>
+        </div>
+      </section>
+
+      <!-- PID kazançları -->
+      <section class="panel-section">
+        <h2 class="section-title">PID kazançları</h2>
+
+        <div class="slider-row">
+          <div class="slider-head">
+            <label for="kp">Kp (oransal)</label>
+            <span class="slider-value num" id="kp-value">8.0</span>
+          </div>
+          <input type="range" id="kp" min="0" max="20" step="0.1" value="8" data-decimals="1">
+          <div class="tooltip" role="tooltip">Hataya orantılı tepki verir; büyüdükçe sistem hızlanır ama salınım artar.</div>
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-head">
+            <label for="ki">Ki (integral)</label>
+            <span class="slider-value num" id="ki-value">2.0</span>
+          </div>
+          <input type="range" id="ki" min="0" max="20" step="0.1" value="2" data-decimals="1">
+          <div class="tooltip" role="tooltip">Biriken hatayı toplayarak kalıcı hatayı sıfıra çeker.</div>
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-head">
+            <label for="kd">Kd (türev)</label>
+            <span class="slider-value num" id="kd-value">0.50</span>
+          </div>
+          <input type="range" id="kd" min="0" max="2" step="0.01" value="0.5" data-decimals="2">
+          <div class="tooltip" role="tooltip">Hatanın değişim hızına tepki vererek aşmayı ve salınımı frenler.</div>
+        </div>
+      </section>
+
+      <!-- Hazır ayarlar -->
+      <section class="panel-section">
+        <h2 class="section-title">Hazır ayarlar</h2>
+        <div class="preset-group">
+          <button type="button" class="btn" data-preset="soft">Yumuşak</button>
+          <button type="button" class="btn is-active" data-preset="balanced">Dengeli</button>
+          <button type="button" class="btn" data-preset="aggressive">Agresif</button>
+        </div>
+      </section>
+
+      <!-- Gelişmiş ayarlar: varsayılan olarak kapalı -->
+      <section class="panel-section">
+        <details class="advanced">
+          <summary>Gelişmiş ayarlar</summary>
+          <p class="advanced-hint">Yük ve mekanik parametreleri</p>
+
+          <div class="advanced-body">
+            <div class="slider-row">
+              <div class="slider-head">
+                <label for="inertia">Yük ataleti J</label>
+                <span class="slider-value num"><span id="inertia-value">0.020</span><span class="unit">kg·m²</span></span>
+              </div>
+              <input type="range" id="inertia" min="0.001" max="0.1" step="0.001" value="0.02" data-decimals="3">
+              <div class="tooltip" role="tooltip">Yükün dönmeye karşı direnci; büyüdükçe sistem yavaşlar.</div>
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-head">
+                <label for="friction">Viskoz sürtünme b</label>
+                <span class="slider-value num"><span id="friction-value">0.010</span><span class="unit">N·m·s/rad</span></span>
+              </div>
+              <input type="range" id="friction" min="0" max="0.1" step="0.001" value="0.01" data-decimals="3">
+              <div class="tooltip" role="tooltip">Hızla orantılı sürtünme; hareketi sönümler ve enerji kaybettirir.</div>
+            </div>
+
+            <div class="slider-row">
+              <div class="slider-head">
+                <label for="gear">Dişli oranı N</label>
+                <span class="slider-value num"><span id="gear-value">50</span><span class="unit">:1</span></span>
+              </div>
+              <input type="range" id="gear" min="10" max="100" step="1" value="50" data-decimals="0">
+              <div class="tooltip" role="tooltip">Motor devrini düşürüp torku artırır; yükü motor tarafında N² kadar küçük gösterir.</div>
+            </div>
+          </div>
+        </details>
+      </section>
+
+      <!-- Esnek boşluk: butonları panelin altına iter -->
+      <div class="panel-spacer"></div>
+
+      <!-- Butonlar -->
+      <section class="panel-section">
+        <div class="action-group">
+          <button type="button" class="btn btn-primary" id="btn-start">Başlat</button>
+          <button type="button" class="btn" id="btn-reset">Sıfırla</button>
+          <button type="button" class="btn btn-signal btn-wide" id="btn-disturb">Dış yük uygula</button>
+        </div>
+      </section>
+    </aside>
+
+    <!-- =========================================================
+         SONUÇLAR (sağda): grafik + açı göstergesi + metrikler
+         ========================================================= -->
+    <div class="results">
+
+      <div class="viz-row">
+        <!-- Grafik kartı -->
+        <section class="chart-card card" aria-label="Zaman grafiği">
+          <div class="chart-header">
+            <h2 class="section-title">Konum yanıtı</h2>
+            <div class="legend" aria-hidden="true">
+              <span class="legend-item"><span class="legend-swatch swatch-target"></span>Hedef açı</span>
+              <span class="legend-item"><span class="legend-swatch swatch-angle"></span>Gerçek açı</span>
+              <span class="legend-item"><span class="legend-swatch swatch-signal"></span>Kontrol sinyali</span>
+            </div>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="chart"></canvas>
+          </div>
+        </section>
+
+        <!-- Açı göstergesi kartı -->
+        <section class="gauge-card card" aria-label="Açı göstergesi">
+          <h2 class="section-title">Açı göstergesi</h2>
+          <div class="gauge-body">
+            <!-- Kadran: merkez (0,0), 0° yukarıda, pozitif açılar saat yönünde.
+                 Derece işaretleri ve etiketler JavaScript ile çizilir. -->
+            <svg class="gauge-svg" viewBox="-130 -130 260 260" role="img" aria-label="Eyleyici açısını gösteren dairesel kadran">
+              <circle class="gauge-face" r="96"></circle>
+              <g id="gauge-ticks"></g>
+              <circle class="gauge-ring" r="96"></circle>
+              <path class="gauge-arc" id="gauge-arc" d=""></path>
+              <!-- Hedef açı işareti (ince gri çizgi) -->
+              <line class="gauge-target" id="gauge-target" x1="0" y1="-64" x2="0" y2="-104"></line>
+              <!-- Gerçek açı kolu (camgöbeği) -->
+              <g id="gauge-arm">
+                <line class="gauge-arm" x1="0" y1="-64" x2="0" y2="-90"></line>
+                <circle class="gauge-arm-tip" cx="0" cy="-90" r="4"></circle>
+              </g>
+              <text class="gauge-caption" x="0" y="-22" text-anchor="middle">GERÇEK AÇI</text>
+              <text class="gauge-value" id="gauge-value" x="0" y="14" text-anchor="middle">0.0°</text>
+            </svg>
+
+            <div class="gauge-readouts">
+              <div class="readout">
+                <div class="readout-label"><span class="legend-swatch swatch-target"></span>Hedef</div>
+                <div class="readout-value num" id="readout-target">90.0°</div>
+              </div>
+              <div class="readout">
+                <div class="readout-label">Hata</div>
+                <div class="readout-value num" id="readout-error">90.0°</div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Metrik kartları -->
+      <section class="metrics" aria-label="Performans metrikleri">
+        <div class="metric card">
+          <div class="metric-head">Aşma <span class="metric-dot" id="dot-overshoot"></span></div>
+          <div class="metric-value num"><span id="m-overshoot">—</span><span class="unit">%</span></div>
+          <div class="metric-target">Hedef &lt; %10</div>
+        </div>
+        <div class="metric card">
+          <div class="metric-head">Yükselme süresi</div>
+          <div class="metric-value num"><span id="m-rise">—</span><span class="unit">s</span></div>
+          <div class="metric-target">%10 → %90</div>
+        </div>
+        <div class="metric card">
+          <div class="metric-head">Oturma süresi <span class="metric-dot" id="dot-settling"></span></div>
+          <div class="metric-value num"><span id="m-settling">—</span><span class="unit">s</span></div>
+          <div class="metric-target">Hedef &lt; 1 s (±%2)</div>
+        </div>
+        <div class="metric card">
+          <div class="metric-head">Kalıcı hata <span class="metric-dot" id="dot-error"></span></div>
+          <div class="metric-value num"><span id="m-error">—</span><span class="unit">°</span></div>
+          <div class="metric-target">Hedef &lt; 0.5°</div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- =========================================================
+       "NASIL ÇALIŞIR?" BÖLÜMÜ (Aşama 4'te doldurulacak)
+       ========================================================= -->
+  <section class="explain" aria-label="Nasıl çalışır">
+    <div class="card">
+      <h2>Nasıl çalışır?</h2>
+      <p>Bu bölümde motor modeli, PID denetleyicisi ve metriklerin nasıl hesaplandığı anlatılacak.</p>
+    </div>
+  </section>
+
+  <!-- =========================================================
+       ALT BİLGİ
+       ========================================================= -->
+  <footer class="footer">
+    Eğitim amaçlı genel model · Alper Durak ·
+    <a href="https://github.com/alperdurak" target="_blank" rel="noopener">github.com/alperdurak</a>
+  </footer>
+
+  <script>
+    /* =========================================================
+       RENKLER VE YAZI TİPLERİ (JavaScript tarafı)
+       CSS'teki değişkenlerle aynı değerler; Chart.js ve SVG
+       çizimi için burada da lazım.
+       ========================================================= */
+    const COLORS = {
+      target: '#64748B',
+      angle: '#38BDF8',
+      signal: '#F59E0B',
+      grid: 'rgba(148, 163, 184, 0.08)',
+      tick: '#94A3B8',
+    };
+
+    const FONT_TEXT = 'Inter, system-ui, sans-serif';
+    const FONT_NUM = '"JetBrains Mono", ui-monospace, Consolas, monospace';
+
+    /* =========================================================
+       SLIDER DEĞERLERİNİ EKRANDA GÖSTERME
+       Her slider hareket ettiğinde yanındaki sayı güncellenir.
+       Kaç basamak gösterileceği slider'ın data-decimals
+       özelliğinden okunur. Değer kutusunun id'si:
+       slider id'si + "-value".
+       ========================================================= */
+    const sliders = document.querySelectorAll('input[type="range"]');
+
+    function updateSliderLabel(slider) {
+      const decimals = Number(slider.dataset.decimals || 0);
+      const label = document.getElementById(slider.id + '-value');
+      label.textContent = Number(slider.value).toFixed(decimals);
+    }
+
+    sliders.forEach((slider) => {
+      updateSliderLabel(slider);
+      slider.addEventListener('input', () => updateSliderLabel(slider));
+    });
+
+    /* =========================================================
+       DURUM GÖSTERGESİ
+       setRunning(true)  -> "Çalışıyor" (yeşil, yanıp söner)
+       setRunning(false) -> "Hazır" (gri)
+       Aşama 2'de simülasyon döngüsü bu fonksiyonu çağıracak.
+       ========================================================= */
+    const statusEl = document.getElementById('status');
+    const statusText = document.getElementById('status-text');
+    const startButton = document.getElementById('btn-start');
+    let isRunning = false;
+
+    function setRunning(running) {
+      isRunning = running;
+      statusEl.dataset.state = running ? 'running' : 'ready';
+      statusText.textContent = running ? 'Çalışıyor' : 'Hazır';
+      startButton.textContent = running ? 'Duraklat' : 'Başlat';
+    }
+
+    // Şimdilik butonlar sadece durum göstergesini değiştirir
+    startButton.addEventListener('click', () => setRunning(!isRunning));
+    document.getElementById('btn-reset').addEventListener('click', () => setRunning(false));
+
+    /* =========================================================
+       AÇI GÖSTERGESİ (SVG KADRAN)
+       Açı kuralı: 0° yukarıda, pozitif açılar saat yönünde.
+       SVG'de y ekseni aşağı baktığı için bir noktanın konumu:
+         x =  r · sin(açı)
+         y = -r · cos(açı)
+       ========================================================= */
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const GAUGE_RADIUS = 96;
+
+    // Açıyı (derece) ve yarıçapı kadran üzerindeki noktaya çevirir
+    function polarToXY(angleDeg, radius) {
+      const a = angleDeg * Math.PI / 180;
+      return { x: radius * Math.sin(a), y: -radius * Math.cos(a) };
+    }
+
+    // Derece işaretlerini ve etiketleri bir kez çizer:
+    // her 10° küçük çizgi, her 30° uzun çizgi, her 90° etiket
+    function drawGaugeTicks() {
+      const group = document.getElementById('gauge-ticks');
+
+      for (let angle = -180; angle < 180; angle += 10) {
+        const isMajor = angle % 30 === 0;
+        const inner = polarToXY(angle, GAUGE_RADIUS - (isMajor ? 12 : 6));
+        const outer = polarToXY(angle, GAUGE_RADIUS);
+
+        const tick = document.createElementNS(SVG_NS, 'line');
+        tick.setAttribute('x1', inner.x);
+        tick.setAttribute('y1', inner.y);
+        tick.setAttribute('x2', outer.x);
+        tick.setAttribute('y2', outer.y);
+        tick.setAttribute('class', isMajor ? 'gauge-tick is-major' : 'gauge-tick');
+        group.appendChild(tick);
+      }
+
+      [0, 90, 180, -90].forEach((angle) => {
+        const pos = polarToXY(angle, GAUGE_RADIUS + 18);
+        const label = document.createElementNS(SVG_NS, 'text');
+        label.setAttribute('x', pos.x);
+        label.setAttribute('y', pos.y);
+        label.setAttribute('text-anchor', 'middle');
+        label.setAttribute('dominant-baseline', 'central');
+        label.setAttribute('class', 'gauge-label');
+        label.textContent = angle === 180 ? '±180' : String(angle);
+        group.appendChild(label);
+      });
+    }
+
+    // 0°'dan verilen açıya kadar kadran kenarında yay çizer
+    function describeArc(angleDeg) {
+      const clamped = Math.max(-359.9, Math.min(359.9, angleDeg));
+      if (Math.abs(clamped) < 0.5) return '';
+      const start = polarToXY(0, GAUGE_RADIUS);
+      const end = polarToXY(clamped, GAUGE_RADIUS);
+      const largeArc = Math.abs(clamped) > 180 ? 1 : 0;
+      const sweep = clamped > 0 ? 1 : 0;   // 1 = saat yönü
+      return `M ${start.x} ${start.y} A ${GAUGE_RADIUS} ${GAUGE_RADIUS} 0 ${largeArc} ${sweep} ${end.x} ${end.y}`;
+    }
+
+    // Göstergeyi günceller: kol, hedef işareti, yay ve yazılar.
+    // Aşama 2'de simülasyon her karede bu fonksiyonu çağıracak.
+    function updateGauge(actualDeg, targetDeg) {
+      document.getElementById('gauge-arm').setAttribute('transform', `rotate(${actualDeg})`);
+      document.getElementById('gauge-target').setAttribute('transform', `rotate(${targetDeg})`);
+      document.getElementById('gauge-arc').setAttribute('d', describeArc(actualDeg));
+      document.getElementById('gauge-value').textContent = `${actualDeg.toFixed(1)}°`;
+      document.getElementById('readout-target').textContent = `${targetDeg.toFixed(1)}°`;
+      document.getElementById('readout-error').textContent = `${(targetDeg - actualDeg).toFixed(1)}°`;
+    }
+
+    drawGaugeTicks();
+
+    // Şimdilik gerçek açı 0°'da sabit; hedef işareti slider'ı izler
+    const targetSlider = document.getElementById('target');
+    updateGauge(0, Number(targetSlider.value));
+    targetSlider.addEventListener('input', () => updateGauge(0, Number(targetSlider.value)));
+
+    /* =========================================================
+       GRAFİK KURULUMU (boş)
+       Üç veri serisi şimdiden tanımlı; Aşama 2'de simülasyon
+       bu serilere veri ekleyecek.
+       - Sol eksen (y): açı, derece
+       - Sağ eksen (yVolt): kontrol sinyali, Volt
+       ========================================================= */
+    Chart.defaults.font.family = FONT_TEXT;
+    Chart.defaults.font.size = 12;
+    Chart.defaults.color = COLORS.tick;
+
+    // Eksen sayıları JetBrains Mono ile yazılır
+    const tickFont = { family: FONT_NUM, size: 11 };
+
+    const chart = new Chart(document.getElementById('chart'), {
+      type: 'line',
+      data: {
+        datasets: [
+          {
+            label: 'Hedef açı',
+            data: [],
+            yAxisID: 'y',
+            borderColor: COLORS.target,
+            borderDash: [6, 4],
+            borderWidth: 1.5,
+            pointRadius: 0,
+          },
+          {
+            label: 'Gerçek açı',
+            data: [],
+            yAxisID: 'y',
+            borderColor: COLORS.angle,
+            borderWidth: 2,
+            pointRadius: 0,
+          },
+          {
+            label: 'Kontrol sinyali',
+            data: [],
+            yAxisID: 'yVolt',
+            borderColor: COLORS.signal,
+            borderWidth: 1.5,
+            pointRadius: 0,
+          },
+        ],
+      },
+      options: {
+        animation: false,          // canlı grafikte animasyon kapalı
+        locale: 'en-US',           // ondalık ayırıcı nokta olsun (slider değerleriyle tutarlı)
+        responsive: true,
+        maintainAspectRatio: false,
+        parsing: false,            // veriyi {x, y} biçiminde vereceğiz
+        normalized: true,
+        plugins: {
+          legend: { display: false },   // kendi HTML açıklamamızı kullanıyoruz
+          tooltip: { enabled: false },
+        },
+        scales: {
+          x: {
+            type: 'linear',
+            min: 0,
+            max: 5,
+            title: { display: true, text: 'Zaman (s)' },
+            grid: { color: COLORS.grid },
+            border: { display: false },
+            ticks: { font: tickFont },
+          },
+          y: {
+            position: 'left',
+            min: -200,
+            max: 200,
+            title: { display: true, text: 'Açı (°)' },
+            grid: { color: COLORS.grid },
+            border: { display: false },
+            ticks: { font: tickFont, stepSize: 50 },
+          },
+          yVolt: {
+            position: 'right',
+            min: -30,
+            max: 30,
+            title: { display: true, text: 'Gerilim (V)', color: COLORS.signal },
+            grid: { drawOnChartArea: false },  // ızgarayı sadece sol eksen çizer
+            border: { display: false },
+            ticks: { font: tickFont, color: COLORS.signal, stepSize: 10 },
+          },
+        },
+      },
+    });
+
+    // Yazı tipleri geç yüklenirse grafiği doğru fontla yeniden çiz
+    document.fonts.ready.then(() => chart.update());
+
+    /* =========================================================
+       HAZIR AYAR BUTONLARI (sadece görsel seçim)
+       Aşama 3'te Kp/Ki/Kd değerlerini de değiştirecek.
+       ========================================================= */
+    const presetButtons = document.querySelectorAll('[data-preset]');
+
+    presetButtons.forEach((button) => {
+      button.addEventListener('click', () => {
+        presetButtons.forEach((b) => b.classList.remove('is-active'));
+        button.classList.add('is-active');
+      });
+    });
+  </script>
+</body>
+</html>
