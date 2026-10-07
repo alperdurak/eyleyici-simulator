@@ -338,6 +338,20 @@
 
     .btn-signal:hover { border-color: var(--signal); color: var(--signal); }
 
+    /* Dış yük uygulanırken buton amber dolgulu görünür */
+    .btn-signal.is-active {
+      border-color: var(--signal);
+      background: rgba(245, 158, 11, 0.14);
+    }
+
+    /* Kullanılamayan buton (ör. simülasyon dururken "Dış yük uygula") */
+    .btn:disabled,
+    .btn:disabled:hover {
+      opacity: 0.4;
+      cursor: not-allowed;
+      border-color: var(--border);
+    }
+
     .action-group {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -499,6 +513,22 @@
       font-weight: 600;
       fill: var(--text);
     }
+
+    /* Dış yük işareti: yük sürerken kadran kenarı amber olur ve
+       kolun yanında torkun yönünü gösteren amber ok belirir */
+    .gauge-disturb {
+      fill: none;
+      stroke: var(--signal);
+      stroke-width: 2.5;
+      stroke-linecap: round;
+      opacity: 0;
+      transition: opacity 150ms ease;
+    }
+    .gauge-disturb-head { fill: var(--signal); stroke: none; }
+    .gauge-ring { transition: stroke 150ms ease; }
+    .gauge-svg.is-disturbed .gauge-ring { stroke: var(--signal); }
+    .gauge-svg.is-disturbed .gauge-disturb { opacity: 1; }
+    .gauge-svg.is-disturbed .gauge-caption { fill: var(--signal); }
 
     /* Kadranın altındaki hedef / hata okumaları */
     .gauge-readouts {
@@ -817,7 +847,7 @@
         <div class="action-group">
           <button type="button" class="btn btn-primary" id="btn-start">Başlat</button>
           <button type="button" class="btn" id="btn-reset">Sıfırla</button>
-          <button type="button" class="btn btn-signal btn-wide" id="btn-disturb">Dış yük uygula</button>
+          <button type="button" class="btn btn-signal btn-wide" id="btn-disturb" disabled title="Simülasyon çalışırken kullanılabilir">Dış yük uygula</button>
         </div>
       </section>
     </aside>
@@ -861,7 +891,13 @@
                 <line class="gauge-arm" x1="0" y1="-64" x2="0" y2="-90"></line>
                 <circle class="gauge-arm-tip" cx="0" cy="-90" r="4"></circle>
               </g>
-              <text class="gauge-caption" x="0" y="-22" text-anchor="middle">GERÇEK AÇI</text>
+              <!-- Dış yük oku: sadece yük sürerken görünür, kolla birlikte döner.
+                   Şekli JavaScript ile çizilir. -->
+              <g class="gauge-disturb" id="gauge-disturb">
+                <path id="gauge-disturb-arc" d=""></path>
+                <path class="gauge-disturb-head" id="gauge-disturb-head" d=""></path>
+              </g>
+              <text class="gauge-caption" id="gauge-caption" x="0" y="-22" text-anchor="middle">GERÇEK AÇI</text>
               <text class="gauge-value" id="gauge-value" x="0" y="14" text-anchor="middle">0.0°</text>
             </svg>
 
@@ -970,11 +1006,14 @@
     const statusEl = document.getElementById('status');
     const statusText = document.getElementById('status-text');
     const startButton = document.getElementById('btn-start');
+    const disturbButton = document.getElementById('btn-disturb');
 
     function showRunning(running) {
       statusEl.dataset.state = running ? 'running' : 'ready';
       statusText.textContent = running ? 'Çalışıyor' : 'Hazır';
       startButton.textContent = running ? 'Duraklat' : 'Başlat';
+      // Dış yük sadece simülasyon çalışırken uygulanabilir
+      disturbButton.disabled = !running;
     }
 
     /* =========================================================
@@ -1047,7 +1086,32 @@
       document.getElementById('readout-error').textContent = `${(targetDeg - actualDeg).toFixed(1)}°`;
     }
 
+    // Dış yük okunu bir kez çizer: kol yukarı bakarken, kolun hemen
+    // solunda saat yönünün tersine (negatif yöne) dönen kısa bir yay
+    // ve ucunda ok başı. Yük negatif yönde ittiği için ok o yöne bakar.
+    // Çalışırken grup, kolla birlikte döndürülür.
+    function drawDisturbArrow() {
+      const radius = 76;
+      const fromDeg = -8;
+      const toDeg = -38;
+      const start = polarToXY(fromDeg, radius);
+      const end = polarToXY(toDeg, radius);
+      document.getElementById('gauge-disturb-arc').setAttribute('d',
+        `M ${start.x} ${start.y} A ${radius} ${radius} 0 0 0 ${end.x} ${end.y}`);
+
+      // Ok başı: yayın ucunda, hareket yönüne bakan küçük üçgen
+      const a = toDeg * Math.PI / 180;
+      const tangent = { x: -Math.cos(a), y: -Math.sin(a) };   // saat yönünün tersi
+      const normal = { x: Math.sin(a), y: -Math.cos(a) };     // merkezden dışa
+      const tip = { x: end.x + tangent.x * 7, y: end.y + tangent.y * 7 };
+      const left = { x: end.x + normal.x * 5, y: end.y + normal.y * 5 };
+      const right = { x: end.x - normal.x * 5, y: end.y - normal.y * 5 };
+      document.getElementById('gauge-disturb-head').setAttribute('d',
+        `M ${tip.x} ${tip.y} L ${left.x} ${left.y} L ${right.x} ${right.y} Z`);
+    }
+
     drawGaugeTicks();
+    drawDisturbArrow();
 
     /* =========================================================
        GRAFİK KURULUMU (boş)
@@ -1056,6 +1120,48 @@
        - Sol eksen (y): açı, derece
        - Sağ eksen (yVolt): kontrol sinyali, Volt
        ========================================================= */
+    /* ---------------------------------------------------------
+       Dış yük işaretleri (küçük bir Chart.js eklentisi)
+       Her dış yük, uygulandığı 0.5 s'lik aralık boyunca grafikte
+       amber renkli silik bir bant ve "Dış yük" etiketiyle gösterilir.
+       Bant, grafik kaydıkça sola akar ve pencereden çıkınca silinir.
+       --------------------------------------------------------- */
+    const disturbanceMarks = [];   // { start, end } (saniye)
+
+    const disturbancePlugin = {
+      id: 'disturbanceMarks',
+      beforeDatasetsDraw(chart) {
+        if (!disturbanceMarks.length) return;
+        const { ctx, chartArea, scales } = chart;
+        ctx.save();
+        // Çizimi grafik alanının içinde tut
+        ctx.beginPath();
+        ctx.rect(chartArea.left, chartArea.top, chartArea.right - chartArea.left, chartArea.bottom - chartArea.top);
+        ctx.clip();
+
+        for (const mark of disturbanceMarks) {
+          const x0 = scales.x.getPixelForValue(mark.start);
+          const x1 = scales.x.getPixelForValue(mark.end);
+
+          ctx.fillStyle = 'rgba(245, 158, 11, 0.12)';
+          ctx.fillRect(x0, chartArea.top, x1 - x0, chartArea.bottom - chartArea.top);
+
+          // Yükün başladığı anı gösteren ince çizgi
+          ctx.strokeStyle = COLORS.signal;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.moveTo(Math.round(x0) + 0.5, chartArea.top);
+          ctx.lineTo(Math.round(x0) + 0.5, chartArea.bottom);
+          ctx.stroke();
+
+          ctx.fillStyle = COLORS.signal;
+          ctx.font = `500 11px ${FONT_TEXT}`;
+          ctx.fillText('Dış yük', x0 + 6, chartArea.top + 14);
+        }
+        ctx.restore();
+      },
+    };
+
     Chart.defaults.font.family = FONT_TEXT;
     Chart.defaults.font.size = 12;
     Chart.defaults.color = COLORS.tick;
@@ -1065,6 +1171,7 @@
 
     const chart = new Chart(document.getElementById('chart'), {
       type: 'line',
+      plugins: [disturbancePlugin],
       data: {
         datasets: [
           {
@@ -1149,17 +1256,48 @@
     document.fonts.ready.then(() => chart.update());
 
     /* =========================================================
-       HAZIR AYAR BUTONLARI (sadece görsel seçim)
-       Aşama 3'te Kp/Ki/Kd değerlerini de değiştirecek.
+       HAZIR AYARLAR
+       Varsayılan yük (J = 0.20, b = 0.05, N = 50) için seçilmiş
+       üç PID kazanç seti:
+       - Yumuşak : aşma yok, yavaş (oturma ~1.5 s). Ki = 0.
+       - Dengeli : hızlı, az aşma; üç hedefi de karşılar.
+       - Agresif : en hızlı yükselme ama ~%20 aşma ve salınım.
+       Butona basınca slider'lar bu değerlere ayarlanır; simülasyon
+       çalışıyorsa yeni kazançlar anında etkili olur.
        ========================================================= */
+    const PRESETS = {
+      soft: { kp: 10, ki: 0, kd: 2 },
+      balanced: { kp: 40, ki: 2, kd: 3 },
+      aggressive: { kp: 90, ki: 30, kd: 0.3 },
+    };
+
+    const gainSliders = ['kp', 'ki', 'kd'].map((id) => document.getElementById(id));
     const presetButtons = document.querySelectorAll('[data-preset]');
 
-    presetButtons.forEach((button) => {
-      button.addEventListener('click', () => {
-        presetButtons.forEach((b) => b.classList.remove('is-active'));
-        button.classList.add('is-active');
+    function applyPreset(name) {
+      const preset = PRESETS[name];
+      gainSliders.forEach((slider) => {
+        slider.value = preset[slider.id];
+        updateSliderLabel(slider);
       });
+      readParams();
+      highlightMatchingPreset();
+    }
+
+    // Slider'lardaki kazançlar bir hazır ayarla birebir aynıysa o butonu
+    // seçili göster; elle değiştirilince seçim kalkar.
+    function highlightMatchingPreset() {
+      presetButtons.forEach((button) => {
+        const preset = PRESETS[button.dataset.preset];
+        const matches = gainSliders.every((slider) => Number(slider.value) === preset[slider.id]);
+        button.classList.toggle('is-active', matches);
+      });
+    }
+
+    presetButtons.forEach((button) => {
+      button.addEventListener('click', () => applyPreset(button.dataset.preset));
     });
+    gainSliders.forEach((slider) => slider.addEventListener('input', highlightMatchingPreset));
 
     /* =========================================================
        FİZİK MODELİ: SABİTLER
@@ -1306,20 +1444,176 @@
        ========================================================= */
     const sim = { time: 0, theta: 0, omega: 0, current: 0, voltage: 0 };
     let stepCount = 0;
-    let disturbanceTorque = 0;   // Aşama 3'te "Dış yük uygula" bunu değiştirecek
 
-    // Tek bir 1 ms'lik adım: önce PID, sonra fizik
+    // Tek bir 1 ms'lik adım: önce PID, sonra fizik, sonra ölçümler
     function simStep() {
       sim.voltage = pidUpdate(params.targetDeg * DEG_TO_RAD, sim.theta);
-      const next = rk4Step(sim, sim.voltage, disturbanceTorque);
+      const next = rk4Step(sim, sim.voltage, currentDisturbanceTorque());
       sim.theta = next.theta;
       sim.omega = next.omega;
       sim.current = next.current;
       sim.time += DT;
       stepCount += 1;
 
+      trackMetrics();
       if (stepCount % CHART_SAMPLE_EVERY === 0) addChartPoint();
     }
+
+    /* =========================================================
+       DIŞ YÜK (BOZUCU TORK)
+       Butona basılınca çıkış miline 0.5 s boyunca 5 N·m'lik ani
+       bir tork uygulanır (motorun durma torku ~15 N·m). Tork
+       negatif yönde iter; denetleyici açıyı hedefte tutmaya çalışır.
+       Yük sürerken tekrar basılırsa süre yeniden başlar.
+       ========================================================= */
+    const DISTURBANCE_TORQUE = 5;      // N·m
+    const DISTURBANCE_DURATION = 0.5;  // s
+    let disturbanceEndTime = -1;       // yükün biteceği simülasyon zamanı
+
+    function isDisturbanceActive() {
+      return sim.time < disturbanceEndTime;
+    }
+
+    function currentDisturbanceTorque() {
+      return isDisturbanceActive() ? DISTURBANCE_TORQUE : 0;
+    }
+
+    function applyDisturbance() {
+      if (!isRunning) return;
+      // Yük, basamak yanıtı ölçümünü bozacağı için o ölçüm burada kapanır
+      freezeStep();
+
+      // Önceki yük hâlâ sürüyorsa aynı işareti uzat, yoksa yeni işaret ekle
+      const lastMark = disturbanceMarks[disturbanceMarks.length - 1];
+      disturbanceEndTime = sim.time + DISTURBANCE_DURATION;
+      if (lastMark && isDisturbanceActive() && lastMark.end > sim.time) {
+        lastMark.end = disturbanceEndTime;
+      } else {
+        disturbanceMarks.push({ start: sim.time, end: disturbanceEndTime });
+      }
+    }
+
+    disturbButton.addEventListener('click', applyDisturbance);
+
+    // Kadranda ve butonda dış yük işaretini aç/kapat (her karede çağrılır)
+    const gaugeSvg = document.querySelector('.gauge-svg');
+    const gaugeCaption = document.getElementById('gauge-caption');
+    const gaugeDisturb = document.getElementById('gauge-disturb');
+
+    function updateDisturbanceVisuals() {
+      const active = isDisturbanceActive();
+      gaugeSvg.classList.toggle('is-disturbed', active);
+      disturbButton.classList.toggle('is-active', active);
+      gaugeCaption.textContent = active ? 'DIŞ YÜK' : 'GERÇEK AÇI';
+      gaugeDisturb.setAttribute('transform', `rotate(${sim.theta * RAD_TO_DEG})`);
+    }
+
+    /* =========================================================
+       PERFORMANS METRİKLERİ
+       Basamak yanıtı: hedef açı her değiştiğinde yeni bir "basamak"
+       ölçümü başlar. Başlangıç açısı θ0, hedef r, basamak Δ = r − θ0.
+       Normalize yanıt y = (θ − θ0) / Δ  (0 = başlangıç, 1 = hedef).
+
+       - Aşma (%)        : y'nin en yüksek değerinin 1'i ne kadar aştığı.
+       - Yükselme süresi : y'nin 0.1'den 0.9'a çıkması için geçen süre.
+       - Oturma süresi   : açının hedefin ±%2 bandına girip bir daha
+                           çıkmadığı an (basamak başından itibaren).
+       - Kalıcı hata (°) : sistem durduğunda (hız ~0) hedefle gerçek
+                           açı arasındaki fark. Basamaktan bağımsız,
+                           sürekli ölçülür.
+
+       Slider sürüklenirken ölçüm bekler; bırakılınca yeni basamak
+       başlar. Dış yük uygulanınca basamak ölçümü dondurulur.
+       ========================================================= */
+    const SETTLING_BAND = 0.02;   // ±%2
+    const SETTLED_HOLD = 0.3;     // bant içinde en az bu kadar kalınca "oturdu" (s)
+    const MIN_STEP_DEG = 1;       // bundan küçük basamaklar ölçülmez (°)
+    const STEADY_SPEED = 0.5;     // bundan yavaşsa "duruyor" sayılır (°/s)
+    const STEADY_HOLD = 0.5;      // bu kadar süre durunca kalıcı hata gösterilir (s)
+
+    const step = {};
+    let steadyFor = 0;            // açının ne kadar süredir durduğu (s)
+
+    function beginStep() {
+      const thetaDeg = sim.theta * RAD_TO_DEG;
+      Object.assign(step, {
+        active: true,
+        startTime: sim.time,
+        startDeg: thetaDeg,
+        targetDeg: params.targetDeg,
+        delta: params.targetDeg - thetaDeg,
+        peak: 0,
+        t10: null,
+        t90: null,
+        lastOutside: 0,
+        inside: false,
+        elapsed: 0,
+      });
+      step.valid = Math.abs(step.delta) >= MIN_STEP_DEG;
+      // Hedef değişti: eski "durgun" durum geçersiz, kalıcı hata yeniden ölçülsün
+      steadyFor = 0;
+      renderMetrics();
+    }
+
+    // Ölçümü o anki değerleriyle dondurur (sonradan değişmez)
+    function freezeStep() {
+      step.active = false;
+    }
+
+    // Her 1 ms'lik adımda çağrılır
+    function trackMetrics() {
+      const thetaDeg = sim.theta * RAD_TO_DEG;
+
+      // Kalıcı hata için: açı ne kadar süredir sabit?
+      if (Math.abs(sim.omega * RAD_TO_DEG) < STEADY_SPEED) steadyFor += DT;
+      else steadyFor = 0;
+
+      if (!step.active || !step.valid) return;
+
+      const t = sim.time - step.startTime;
+      const y = (thetaDeg - step.startDeg) / step.delta;
+      step.elapsed = t;
+      step.peak = Math.max(step.peak, y);
+      if (step.t10 === null && y >= 0.1) step.t10 = t;
+      if (step.t90 === null && y >= 0.9) step.t90 = t;
+
+      step.inside = Math.abs(thetaDeg - step.targetDeg) <= SETTLING_BAND * Math.abs(step.delta);
+      if (!step.inside) step.lastOutside = t;
+    }
+
+    // Metriklerin ekranda gösterilecek değerlerini hesaplar (null = henüz yok)
+    function metricValues() {
+      const settled = step.valid && step.inside && step.elapsed - step.lastOutside >= SETTLED_HOLD;
+      const reachedTarget = step.valid && step.peak >= 1;
+      return {
+        overshoot: reachedTarget || settled ? Math.max(0, step.peak - 1) * 100 : null,
+        rise: step.valid && step.t90 !== null ? step.t90 - step.t10 : null,
+        settling: settled ? step.lastOutside : null,
+        error: steadyFor >= STEADY_HOLD ? Math.abs(params.targetDeg - sim.theta * RAD_TO_DEG) : null,
+      };
+    }
+
+    // Bir metrik kartını günceller. goodBelow verilirse renkli nokta da güncellenir.
+    function setMetric(key, value, decimals, goodBelow) {
+      document.getElementById(`m-${key}`).textContent = value === null ? '—' : value.toFixed(decimals);
+      const dot = document.getElementById(`dot-${key}`);
+      if (!dot) return;
+      dot.classList.toggle('is-good', value !== null && value < goodBelow);
+      dot.classList.toggle('is-bad', value !== null && value >= goodBelow);
+    }
+
+    function renderMetrics() {
+      const m = metricValues();
+      setMetric('overshoot', m.overshoot, 1, 10);
+      setMetric('rise', m.rise, 2);
+      setMetric('settling', m.settling, 2, 1);
+      setMetric('error', m.error, 2, 0.5);
+    }
+
+    // Hedef slider'ı: sürüklerken ölçüm bekler, bırakınca yeni basamak başlar
+    const targetSlider = document.getElementById('target');
+    targetSlider.addEventListener('input', freezeStep);
+    targetSlider.addEventListener('change', beginStep);
 
     /* =========================================================
        GRAFİĞE VERİ EKLEME
@@ -1338,6 +1632,10 @@
         targetSeries.shift();
         angleSeries.shift();
         voltageSeries.shift();
+      }
+      // Pencereden tamamen çıkmış dış yük işaretlerini de sil
+      while (disturbanceMarks.length && disturbanceMarks[0].end < oldest) {
+        disturbanceMarks.shift();
       }
     }
 
@@ -1376,6 +1674,8 @@
 
       refreshChart();
       updateGauge(sim.theta * RAD_TO_DEG, params.targetDeg);
+      updateDisturbanceVisuals();
+      renderMetrics();
       requestAnimationFrame(frame);
     }
 
@@ -1402,8 +1702,14 @@
       targetSeries.length = 0;
       angleSeries.length = 0;
       voltageSeries.length = 0;
+      disturbanceMarks.length = 0;
+      disturbanceEndTime = -1;
+      steadyFor = 0;
+      beginStep();   // ilk basamak: 0°'dan hedefe
       refreshChart();
       updateGauge(0, params.targetDeg);
+      updateDisturbanceVisuals();
+      renderMetrics();
     }
 
     startButton.addEventListener('click', () => (isRunning ? pause() : start()));
