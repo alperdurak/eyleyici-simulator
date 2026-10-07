@@ -4,6 +4,8 @@ Elektromekanik bir eyleyicinin (DC motor + dişli kutusu) PID ile konum kontrol�
 
 Hedef açıyı değiştir, PID kazançlarıyla oyna, sisteme ani bir dış yük uygula; eyleyicinin nasıl tepki verdiğini grafikte, açı göstergesinde ve performans metriklerinde izle.
 
+![Dengeli ayarla 90°'lik basamak yanıtı](docs/ekran-goruntusu-1.png)
+
 ## Neden bu proje?
 
 Hareket kontrol sistemleri, bir mekanizmanın istenen konuma hızlı, doğru ve kararlı biçimde gitmesini sağlar. Savunma sanayiinde bu sistemler, platformun etkinliğini doğrudan belirleyen kritik alt sistemlerdir:
@@ -25,9 +27,15 @@ Bu uygulamaların hepsinin temelinde aynı problem yatar: bir motoru, yük ve bo
 - **Hazır ayarlar:** Yumuşak, Dengeli, Agresif.
 - **Gelişmiş ayarlar:** Yük ataleti, viskoz sürtünme ve dişli oranı.
 
-## Çalıştırma
+![Agresif ayarla aynı basamak: daha hızlı yükselme, %20 aşma ve salınım](docs/ekran-goruntusu-2.png)
 
-Kurulum gerekmez. `index.html` dosyasını bir tarayıcıda açman yeterli.
+## Nasıl çalıştırılır?
+
+Kurulum gerekmez.
+
+1. Bu sayfanın üstündeki **Code** butonuna tıkla ve **Download ZIP**'i seç.
+2. İnen ZIP dosyasını bir klasöre çıkar ve klasörü aç.
+3. `index.html` dosyasına çift tıkla; simülatör varsayılan tarayıcında açılır.
 
 Sayfa, Chart.js ile Google Fonts'u internetten yüklediği için ilk açılışta internet bağlantısı gerekir.
 
